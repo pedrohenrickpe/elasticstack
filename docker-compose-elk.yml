@@ -1,0 +1,63 @@
+version: "3.9"
+
+services:
+   elasticsearch:
+      image: docker.elastic.co/elasticsearch/elasticsearch:7.15.1-amd64
+      labels:
+         author: "Pedro Henrick" 
+      container_name: elasticsearch
+      environment:
+         - http.host=0.0.0.0
+         - node.name=elasticsearch
+         - discovery.type=single-node
+         - xpack.security.enabled=true
+         - xpack.monitoring.collection.enabled=true
+         - ELASTIC_USER=${ELASTIC_USER}
+         - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      ulimits: 
+         memlock:
+            soft: -1
+            hard: -1
+      healthcheck:
+         test: curl -f -i -u ${ELASTIC_USER}:${ELASTIC_PASSWORD} http://localhost:9200
+      restart: on-failure
+      ports: 
+         - 9200:9200
+
+   kibana: 
+      image: docker.elastic.co/kibana/kibana:7.15.1-amd64
+      labels: 
+         author: "Pedro Henrick"
+      container_name: kibana
+      depends_on: 
+         - elasticsearch
+      environment:
+         SERVER_NAME: kibana
+         SERVER_HOST: 0.0.0.0
+         ELASTICSEARCH_URL: http://elasticsearch:9200
+         ELASTICSEARCH_HOSTS: '["http://elasticsearch:9200"]'
+         ELASTICSEARCH_USERNAME: ${ELASTIC_USER}
+         ELASTICSEARCH_PASSWORD: ${ELASTIC_PASSWORD}
+      healthcheck:
+         test: curl -f -i http://localhost:5601/login
+      restart: on-failure
+      ports: 
+         - 5601:5601
+    
+   logstash:
+      image: docker.elastic.co/logstash/logstash:7.15.1-amd64
+      labels: 
+         author: "Pedro Henrick"
+      container_name: logstash
+      depends_on: 
+         - elasticsearch
+      environment:
+         XPACK.MONITORING.ELASTICSEARCH.USERNAME: ${ELASTIC_USER}
+         XPACK.MONITORING.ELASTICSEARCH.PASSWORD: ${ELASTIC_PASSWORD}
+         XPACK.MONITORING.ELASTICSEARCH.HOSTS: http://elasticsearch:9200
+      restart: on-failure
+      volumes:
+         - ./logstash:/mnt
+      ports:
+         - 5044:5044
+
